@@ -1,0 +1,32 @@
+
+# 构建目录
+build/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+*.o
+*.obj
+*.moc
+*.rcc
+*.qmlc
+
+# Qt Creator 临时文件
+*.pro.user
+*.autosave
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*~
+
+# 可执行文件
+ArxmlViewerPro
+
+# SQLite 数据库（运行时生成，不提交）
+*.sqlite
+*.db
+```
+
+切 ACT MODE 我直接创建。
