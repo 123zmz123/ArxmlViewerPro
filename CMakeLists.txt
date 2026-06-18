@@ -7,5 +7,5 @@ set(CMAKE_AUTOMOC ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Core Sql Xml)
 
-qt_add_executable(ArxmlViewerPro src/main.cpp)
+qt_add_executable(ArxmlViewerPro src/main.cpp src/arxmlparser.cpp)
 target_link_libraries(ArxmlViewerPro PRIVATE Qt6::Core Qt6::Sql Qt6::Xml)
