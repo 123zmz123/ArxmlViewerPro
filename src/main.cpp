@@ -3,7 +3,7 @@
 #include "arxmlparser.h"
 #include <QString>
 
-QString path = "/home/zmz/cprj/ArxmlViewerPro/test1.arxml";
+QString path = "/home/zmz/cprj/ArxmlViewerPro/test.arxml";
 int main(int argc, char *argv[])
 {
     ArxmlParser parser;
@@ -12,5 +12,6 @@ int main(int argc, char *argv[])
     if(!parser.parseFile(path)){
         qDebug() << "Error parsing file:" << path;
     };
+    parser.saveFile("/home/zmz/cprj/ArxmlViewerPro/test1_copy.arxml");
     return 0;
 }

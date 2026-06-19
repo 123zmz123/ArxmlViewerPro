@@ -12,8 +12,12 @@ public:
     ArxmlParser() = default;
 
     bool parseFile(const QString &filePath);
+    bool saveFile(const QString &filePath);
+    QDomElement root() { return m_doc.documentElement(); }
+    QDomDocument &doc() { return m_doc; }
 
 private:
+    QDomDocument m_doc;
     void traverse(const QDomElement &el, int depth);
 };
 

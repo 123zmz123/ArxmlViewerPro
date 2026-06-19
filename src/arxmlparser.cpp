@@ -12,17 +12,26 @@ bool ArxmlParser::parseFile(const QString &filePath)
         return false;
     }
 
-    QDomDocument doc;
-    if (!doc.setContent(&file)) {
+    if (!m_doc.setContent(&file)) {
         qWarning() << "Failed to parse XML";
         return false;
     }
 
     qDebug() << "Parsing:" << QFileInfo(filePath).fileName();
-
-    QDomElement root = doc.documentElement();
+    QDomElement root = m_doc.documentElement();
     traverse(root, 0);
 
+    return true;
+}
+
+bool ArxmlParser::saveFile(const QString &filePath)
+{
+    QFile out(filePath);
+    if (!out.open(QIODevice::WriteOnly)) {
+        qWarning() << "Cannot open file for writing:" << filePath;
+        return false;
+    }
+    out.write(m_doc.toByteArray());
     return true;
 }
 
