@@ -19,7 +19,7 @@ bool ArxmlParser::parseFile(const QString &filePath)
 
     qDebug() << "Parsing:" << QFileInfo(filePath).fileName();
     QDomElement root = m_doc.documentElement();
-    traverse(root, 0);
+    // traverse(root, 0);
 
     return true;
 }
@@ -75,4 +75,74 @@ void ArxmlParser::traverse(const QDomElement &el, int depth)
         }
         qDebug().noquote() << indent + "</" + el.tagName() + ">";
     }
+}
+
+QDomElement ArxmlParser::findByPath(const QString &path)
+{
+    QStringList parts = path.split('/', Qt::SkipEmptyParts);
+    QDomElement current = m_doc.documentElement();
+
+    for (const QString &targetName : parts) {
+        QDomElement found = findInSubtree(current, targetName);
+        if (found.isNull())
+            return QDomElement();  // 某段路径没找到
+        current = found;
+    }
+    return current;
+}
+
+QDomElement ArxmlParser::findInSubtree(const QDomElement &el, const QString &targetName)
+{
+    QDomNodeList children = el.childNodes();
+    for (int i = 0; i < children.count(); i++) {
+        if (!children.at(i).isElement())
+            continue;
+        QDomElement child = children.at(i).toElement();
+
+        // 检查这个元素是否有SHORT-NAME等于目标名
+        QDomElement sn = findChildByTag(child, "SHORT-NAME");
+        if (!sn.isNull() && sn.text().trimmed() == targetName)
+            return child;
+
+        // 递归搜索子树
+        QDomElement found = findInSubtree(child, targetName);
+        if (!found.isNull())
+            return found;
+    }
+    return QDomElement();
+}
+
+QDomElement ArxmlParser::findChildByTag(const QDomElement &parent, const QString &tag)
+{
+    QDomNodeList children = parent.childNodes();
+    for (int i = 0; i < children.count(); i++) {
+        if (children.at(i).isElement() && children.at(i).toElement().tagName() == tag)
+            return children.at(i).toElement();
+    }
+    return QDomElement();
+}
+
+QString ArxmlParser::getValue(const QString &path, const QString &tagName)
+{
+    QDomElement el = findByPath(path);
+    if (el.isNull())
+        return QString();
+    // qDebug() << el.tagName();
+    // qDebug() << "getValue:";
+    QDomElement sn = findChildByTag(el, tagName);
+    return sn.isNull() ? QString() : sn.text().trimmed();
+}
+
+bool ArxmlParser::setValue(const QString &path,  const QString &tagName, const QString &value)
+{ 
+    QDomElement el = findByPath(path);
+    if (el.isNull()) return false;
+    QDomElement sn = findChildByTag(el, tagName);
+    if (sn.isNull()) return false;
+
+    // 清除所有旧子节点，追加一个新文本节点
+    while (sn.hasChildNodes())
+        sn.removeChild(sn.firstChild());
+    sn.appendChild(m_doc.createTextNode(value));
+    return true;
 }
