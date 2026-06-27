@@ -1,4 +1,5 @@
 #include "arxmlparser.h"
+#include "arxmldatabase.h"
 #include <QDebug>
 #include <QFile>
 #include <QFileInfo>
@@ -11,6 +12,8 @@ bool ArxmlParser::parseFile(const QString &filePath)
         qWarning() << "Cannot open file:" << filePath;
         return false;
     }
+
+    m_filePath = filePath;
 
     if (!m_doc.setContent(&file)) {
         qWarning() << "Failed to parse XML";
@@ -145,4 +148,61 @@ bool ArxmlParser::setValue(const QString &path,  const QString &tagName, const Q
         sn.removeChild(sn.firstChild());
     sn.appendChild(m_doc.createTextNode(value));
     return true;
+}
+
+bool ArxmlParser::indexToDatabase(ArxmlDatabase &db)
+{
+    QDomElement root = m_doc.documentElement();
+    if (root.isNull())
+        return false;
+
+    indexElementToDb(db, root, 0, "");
+    return true;
+}
+
+void ArxmlParser::indexElementToDb(ArxmlDatabase &db, const QDomElement &el,
+                                    int depth,
+                                    const QString &pathPrefix)
+{
+    QString uuid = el.attribute("UUID");
+    QString parentPath;
+
+    if (!uuid.isEmpty()) {
+        // 有 UUID → 插入记录
+        QString tagName = el.tagName();
+        QString shortName = collectChildText(el, "SHORT-NAME");
+        QString fullPath = pathPrefix + "/" + shortName;
+
+        QString value = collectChildText(el, "VALUE");
+        db.insertElement(uuid, tagName, shortName, m_filePath, depth, fullPath, value);
+        qDebug() << "Inserting:" << tagName << shortName << uuid << fullPath;
+    }
+
+    QString shortName = collectChildText(el, "SHORT-NAME");
+
+    if(shortName.isEmpty()){
+        parentPath = pathPrefix;
+    }else{
+        parentPath = pathPrefix + "/" + shortName;  
+    }
+
+    QDomNodeList children = el.childNodes();
+    for (int i = 0; i < children.count(); i++) {
+        if (children.at(i).isElement()) {
+            indexElementToDb(db, children.at(i).toElement(),
+                             depth + 1, parentPath);
+        }
+    }
+}
+
+QString ArxmlParser::collectChildText(const QDomElement &el, const QString &tagName)
+{
+    QDomNodeList children = el.childNodes();
+    for (int i = 0; i < children.count(); i++) {
+        if (children.at(i).isElement()
+            && children.at(i).toElement().tagName() == tagName) {
+            return children.at(i).toElement().text().trimmed();
+        }
+    }
+    return QString();
 }
