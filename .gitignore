@@ -20,7 +20,7 @@ Makefile
 .idea/
 *.swp
 *~
-
+AutoSar/
 # 可执行文件
 ArxmlViewerPro
 

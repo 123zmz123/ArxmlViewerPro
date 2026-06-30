@@ -1,35 +1,44 @@
 #include <QCoreApplication>
 #include <QDebug>
-#include "arxmlparser.h"
-#include <QString>
 #include "arxmldatabase.h"
-
-QString path = "/home/zmz/cprj/ArxmlViewerPro/test.arxml";
-QString dbpath = "/home/zmz/cprj/ArxmlViewerPro/my.db";
-QString find = "/AUTOSAR_Can/EcucModuleDefs/Can";
-QString field = "CATEGORY";
+#include "arxmlparser.h"
+#include "arxmlutils.h"
+#include <QMap>
+#include <sys/resource.h>
 
 int main(int argc, char *argv[])
 {
-    ArxmlParser parser;
-    ArxmlDatabase db;
-    db.init(dbpath);
     QCoreApplication app(argc, argv);
-    QString FieldValue= QString();
-    if(!parser.parseFile(path)){
-        qDebug() << "Error parsing file:" << path;
-    };
-    db.beginTransaction();
-    parser.indexToDatabase(db);
-    db.insertIndexedFile(path, "test.arxml", 0);
-    db.commit();
-    // FieldValue= parser.getValue(find,field);
-    // if(!FieldValue.isNull()){
-    //     qDebug() << "Found:" << find;
-    //     qDebug() << "Value:" << FieldValue;
-    // }
 
-    // parser.setValue(find, field,"AAAAAAAAAA");
-    // parser.saveFile("/home/zmz/cprj/ArxmlViewerPro/test1_copy.arxml");
-    // return 0;
+    QMap<QString, ArxmlParser> parsers;
+    QString dbpath = "/home/zmz/cprj/ArxmlViewerPro/my.db";
+    QString configPath = "/home/zmz/cprj/ArxmlViewerPro/AutoSar";
+
+    ArxmlDatabase db;
+    if (!db.init(dbpath)) {
+        qWarning() << "Failed to init database";
+        return 1;
+    }
+
+    QStringList files = ArxmlUtils::collectArxmlFiles(configPath);
+    qDebug() << "Found" << files.size() << ".arxml files";
+
+    for (const QString &filePath : files) {
+        ArxmlParser parser;
+        if (!parser.parseFile(filePath)) {
+            qWarning() << "Failed to parse:" << filePath;
+            continue;
+        }
+        db.indexDocument(parser);
+        parsers.insert(filePath, parser);
+    }
+
+    struct rusage usage;
+    getrusage(RUSAGE_SELF, &usage);
+    qDebug() << "\n=== Memory Usage ===";
+    qDebug() << "Parsers loaded:" << parsers.size() << "files";
+    qDebug() << "Max RSS:" << usage.ru_maxrss << "KB"
+             << "(" << usage.ru_maxrss / 1024.0 << "MB)";
+
+    return 0;
 }

@@ -1,6 +1,8 @@
 #include "arxmldatabase.h"
+#include "arxmlparser.h"
 
 #include <QDebug>
+#include <QFileInfo>
 #include <QSqlError>
 #include <QSqlQuery>
 
@@ -26,6 +28,11 @@ bool ArxmlDatabase::init(const QString &dbPath)
         qWarning() << "Cannot open database:" << m_db.lastError().text();
         return false;
     }
+
+    // 每次 init 从零开始，删旧表重建
+    QSqlQuery drop(m_db);
+    drop.exec("DROP TABLE IF EXISTS elements");
+    drop.exec("DROP TABLE IF EXISTS indexed_files");
 
     createTables();
     return true;
@@ -118,6 +125,18 @@ bool ArxmlDatabase::insertIndexedFile(const QString &filePath, const QString &fi
     q.addBindValue(mtime);
     q.addBindValue(filePath);
     return q.exec();
+}
+
+bool ArxmlDatabase::indexDocument(ArxmlParser &parser)
+{
+    QString filePath = parser.filePath();
+
+    beginTransaction();
+    parser.indexToDatabase(*this);
+    QFileInfo fi(filePath);
+    insertIndexedFile(filePath, fi.fileName(), fi.lastModified().toSecsSinceEpoch());
+    commit();
+    return true;
 }
 
 bool ArxmlDatabase::removeFile(const QString &filePath)

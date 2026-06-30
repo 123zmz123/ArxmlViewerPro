@@ -15,11 +15,14 @@ public:
 
     bool parseFile(const QString &filePath);
     bool saveFile(const QString &filePath);
+    QString filePath() const { return m_filePath; }
     QDomElement root() { return m_doc.documentElement(); }
     QDomDocument &doc() { return m_doc; }
     QDomElement findByPath(const QString &path);
     QString getValue(const QString &path, const QString &tagName = "VALUE");
     bool    setValue(const QString &path,  const QString &tagName,const QString &value);
+
+    bool addElement(const QString &path, const QString &tagName, const QString &value);
 
     // 数据库索引
     bool indexToDatabase(ArxmlDatabase &db);

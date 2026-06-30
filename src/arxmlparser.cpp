@@ -150,6 +150,20 @@ bool ArxmlParser::setValue(const QString &path,  const QString &tagName, const Q
     return true;
 }
 
+bool ArxmlParser::addElement(const QString &path, const QString &tagName, const QString &value = QString())
+{ 
+    QDomElement el = findByPath(path);
+    if(el.isNull()) return false;
+    QDomElement s_el = m_doc.createElement(tagName);
+
+    if(!value.isEmpty()){
+        s_el.appendChild(m_doc.createTextNode(value));
+    }
+
+    el.appendChild(s_el);
+    return true;
+}
+
 bool ArxmlParser::indexToDatabase(ArxmlDatabase &db)
 {
     QDomElement root = m_doc.documentElement();
@@ -175,7 +189,7 @@ void ArxmlParser::indexElementToDb(ArxmlDatabase &db, const QDomElement &el,
 
         QString value = collectChildText(el, "VALUE");
         db.insertElement(uuid, tagName, shortName, m_filePath, depth, fullPath, value);
-        qDebug() << "Inserting:" << tagName << shortName << uuid << fullPath;
+        // qDebug() << "Inserting:" << tagName << shortName << uuid << fullPath;
     }
 
     QString shortName = collectChildText(el, "SHORT-NAME");

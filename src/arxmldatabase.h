@@ -6,6 +6,8 @@
 #include <QSqlDatabase>
 #include <QSqlQuery>
 
+class ArxmlParser;
+
 class ArxmlDatabase
 {
 public:
@@ -24,6 +26,9 @@ public:
     QStringList indexedFiles();
     bool insertIndexedFile(const QString &filePath, const QString &fileName, qint64 mtime);
     bool removeFile(const QString &filePath);
+
+    // 索引操作
+    bool indexDocument(ArxmlParser &parser);
 
     // 元素操作
     bool insertElement(const QString &uuid,
