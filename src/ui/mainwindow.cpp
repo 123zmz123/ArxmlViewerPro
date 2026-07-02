@@ -177,13 +177,9 @@ void MainWindow::buildTreeFromParser(ArxmlParser &parser, const QString &filePat
                     elemCount++;
             }
 
-            // 跳过纯容器标签，但继续递归子元素
-            static const QStringList skipTags = {"AR-PACKAGE",
-                "AR-PACKAGES", "ELEMENTS", "CONTAINERS", "SUB-CONTAINERS",
-                "PARAMETERS", "REFERENCES", "LITERALS", "ECUC-CONTAINER-VALUES"
-            };
-
-            if (skipTags.contains(tag)) {
+            // 通用容器检测：无 UUID 且无 SHORT-NAME = 纯容器，跳过但继续递归
+            QString shortName = ArxmlParser::collectChildText(el, "SHORT-NAME");
+            if (uuid.isEmpty() && shortName.isEmpty() && elemCount > 0) {
                 for (int i = 0; i < children.count(); i++) {
                     QDomNode child = children.at(i);
                     if (child.isElement())
@@ -194,15 +190,12 @@ void MainWindow::buildTreeFromParser(ArxmlParser &parser, const QString &filePat
 
             QString display;
             if (elemCount == 0) {
-                // 叶子节点：取文本
+                // 叶子节点：显示文本内容
                 QString text = el.text().trimmed();
-                if (text.isEmpty())
-                    display = QString("<%1/>").arg(tag);
-                else
-                    display = text;
+                display = text.isEmpty() ? tag : text;
             } else {
-                // 容器：显示标签名
-                display = tag;
+                // 容器：优先 SHORT-NAME，否则标签名
+                display = shortName.isEmpty() ? tag : shortName;
             }
 
             QStandardItem *item = new QStandardItem(display);
@@ -224,18 +217,19 @@ void MainWindow::buildTreeFromParser(ArxmlParser &parser, const QString &filePat
             parent->appendRow(item);
 
             // Tag 列 + Value 列
-            QString shortName = ArxmlParser::collectChildText(el, "SHORT-NAME");
-            QString val       = ArxmlParser::collectChildText(el, "VALUE");
+            QString val = ArxmlParser::collectChildText(el, "VALUE");
             QStandardItem *tagCol = new QStandardItem(tag);
             QStandardItem *valCol = new QStandardItem(val);
             parent->setChild(item->row(), 1, tagCol);
             parent->setChild(item->row(), 2, valCol);
 
-            // 递归子元素
+            // 递归子元素（SHORT-NAME 已作父节点名显示，跳过）
             for (int i = 0; i < children.count(); i++) {
                 QDomNode child = children.at(i);
-                if (child.isElement())
-                    walk(child.toElement(), item);
+                if (!child.isElement()) continue;
+                QString childTag = child.toElement().tagName();
+                if (childTag == "SHORT-NAME") continue;
+                walk(child.toElement(), item);
             }
         };
 

@@ -6,6 +6,6 @@
 #define ARXML_COLOR_CONTAINER  "#4EC9B0"  // 容器节点（青绿=类名）
 #define ARXML_COLOR_UUID_LEAF  "#569CD6"  // 带 UUID 的叶子（蓝=关键字）
 #define ARXML_COLOR_REFERENCE  "#9CDCFE"  // 引用/关联（淡蓝）
-#define ARXML_COLOR_PLAIN_LEAF "#D4D4D4"  // 普通叶子（默认浅灰）
+#define ARXML_COLOR_PLAIN_LEAF "#DCDCAA"  // 普通叶子（默认浅灰）
 
 #endif // ARXMLCOLORS_H
