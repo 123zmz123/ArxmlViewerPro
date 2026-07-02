@@ -4,6 +4,7 @@
 #include "../arxmlparser.h"
 #include "../arxmldatabase.h"
 #include "../arxmlutils.h"
+#include "arxmlcolors.h"
 
 #include <QDebug>
 #include <QDir>
@@ -209,6 +210,17 @@ void MainWindow::buildTreeFromParser(ArxmlParser &parser, const QString &filePat
             item->setData(tag,  Qt::UserRole + 1);
             item->setData(filePath, Qt::UserRole + 2);
             item->setFlags(item->flags() & ~Qt::ItemIsEditable);
+
+            // 通用颜色规则（不依赖具体标签名）
+            if (elemCount > 0)
+                item->setForeground(QColor(ARXML_COLOR_CONTAINER));
+            else if (!uuid.isEmpty())
+                item->setForeground(QColor(ARXML_COLOR_UUID_LEAF));
+            else if (tag.contains("REF"))
+                item->setForeground(QColor(ARXML_COLOR_REFERENCE));
+            else
+                item->setForeground(QColor(ARXML_COLOR_PLAIN_LEAF));
+
             parent->appendRow(item);
 
             // Tag 列 + Value 列
