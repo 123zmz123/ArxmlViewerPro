@@ -27,6 +27,9 @@ public:
     // 数据库索引
     bool indexToDatabase(ArxmlDatabase &db);
 
+    // 工具方法
+    static QString collectChildText(const QDomElement &el, const QString &tagName);
+
 private:
     QDomDocument m_doc;
     QString m_filePath;
@@ -38,7 +41,6 @@ private:
     void indexElementToDb(ArxmlDatabase &db, const QDomElement &el,
                           int depth,
                           const QString &pathPrefix);
-    QString collectChildText(const QDomElement &el, const QString &tagName);
 };
 
 #endif // ARXMLPARSER_H

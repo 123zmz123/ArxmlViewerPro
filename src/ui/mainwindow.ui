@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect><x>0</x><y>0</y><width>1200</width><height>800</height></rect>
+  </property>
+  <property name="windowTitle">
+   <string>ARXML Viewer Pro</string>
+  </property>
+
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QVBoxLayout" name="verticalLayout" stretch="0,1">
+    <item>
+     <layout class="QHBoxLayout" name="searchLayout">
+      <item>
+       <widget class="QLineEdit" name="searchInput">
+        <property name="placeholderText">
+         <string>Search by short-name or tag-name...</string>
+        </property>
+        <property name="minimumHeight"><number>32</number></property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="searchButton">
+        <property name="text"><string>Search</string></property>
+        <property name="minimumHeight"><number>32</number></property>
+       </widget>
+      </item>
+     </layout>
+    </item>
+    <item>
+     <widget class="QSplitter" name="splitter">
+      <property name="orientation">
+       <enum>Qt::Horizontal</enum>
+      </property>
+      <widget class="QTreeView" name="fileTree"/>
+      <widget class="QTreeView" name="arxmlTree"/>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect><x>0</x><y>0</y><width>1200</width><height>25</height></rect>
+   </property>
+   <widget class="QMenu" name="menuFile">
+    <property name="title"><string>File</string></property>
+    <addaction name="actionOpen"/>
+    <addaction name="actionRefresh"/>
+    <addaction name="separator"/>
+    <addaction name="actionExit"/>
+   </widget>
+   <addaction name="menuFile"/>
+  </widget>
+
+  <widget class="QStatusBar" name="statusbar"/>
+
+  <action name="actionOpen">
+   <property name="text"><string>Open Folder...</string></property>
+   <property name="shortcut"><string>Ctrl+O</string></property>
+  </action>
+  <action name="actionRefresh">
+   <property name="text"><string>Refresh</string></property>
+   <property name="shortcut"><string>F5</string></property>
+  </action>
+  <action name="actionExit">
+   <property name="text"><string>Exit</string></property>
+   <property name="shortcut"><string>Ctrl+Q</string></property>
+  </action>
+ </widget>
+ <resources/>
+</ui>
