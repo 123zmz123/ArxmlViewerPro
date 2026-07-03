@@ -6,6 +6,8 @@
 
 class ArxmlParser;
 class ArxmlDatabase;
+class QDomElement;
+class QStandardItem;
 class QTreeView;
 class QLineEdit;
 class QStandardItemModel;
@@ -29,6 +31,8 @@ private slots:
 
 private:
     void buildTreeFromParser(ArxmlParser &parser, const QString &filePath);
+    void walkDomNode(const QDomElement &el, QStandardItem *parent,
+                     const QString &pathPrefix, const QString &filePath);
     void loadStyleSheet();
 
     Ui::MainWindow *ui;

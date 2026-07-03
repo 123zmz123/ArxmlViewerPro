@@ -163,84 +163,89 @@ void MainWindow::buildTreeFromParser(ArxmlParser &parser, const QString &filePat
     fileItem->setFlags(fileItem->flags() & ~Qt::ItemIsEditable);
     m_treeModel->invisibleRootItem()->appendRow(fileItem);
 
-    // 仿照 ArxmlParser::traverse() 风格
-    std::function<void(const QDomElement &, QStandardItem *)> walk =
-        [&](const QDomElement &el, QStandardItem *parent) {
-            QString tag  = el.tagName();
-            QString uuid = el.attribute("UUID");
-
-            // 分类子节点：是否有子元素
-            QDomNodeList children = el.childNodes();
-            int elemCount = 0;
-            for (int i = 0; i < children.count(); i++) {
-                if (children.at(i).isElement())
-                    elemCount++;
-            }
-
-            // 通用容器检测：无 UUID 且无 SHORT-NAME = 纯容器，跳过但继续递归
-            QString shortName = ArxmlParser::collectChildText(el, "SHORT-NAME");
-            if (uuid.isEmpty() && shortName.isEmpty() && elemCount > 0) {
-                for (int i = 0; i < children.count(); i++) {
-                    QDomNode child = children.at(i);
-                    if (child.isElement())
-                        walk(child.toElement(), parent);
-                }
-                return;
-            }
-
-            QString display;
-            if (elemCount == 0) {
-                // 叶子节点：显示文本内容
-                QString text = el.text().trimmed();
-                display = text.isEmpty() ? tag : text;
-            } else {
-                // 容器：优先 SHORT-NAME，否则标签名
-                display = shortName.isEmpty() ? tag : shortName;
-            }
-
-            QStandardItem *item = new QStandardItem(display);
-            item->setData(uuid, Qt::UserRole);
-            item->setData(tag,  Qt::UserRole + 1);
-            item->setData(filePath, Qt::UserRole + 2);
-            item->setFlags(item->flags() & ~Qt::ItemIsEditable);
-
-            // 通用颜色规则（不依赖具体标签名）
-            if (elemCount > 0)
-                item->setForeground(QColor(ARXML_COLOR_CONTAINER));
-            else if (!uuid.isEmpty())
-                item->setForeground(QColor(ARXML_COLOR_UUID_LEAF));
-            else if (tag.contains("REF"))
-                item->setForeground(QColor(ARXML_COLOR_REFERENCE));
-            else
-                item->setForeground(QColor(ARXML_COLOR_PLAIN_LEAF));
-
-            parent->appendRow(item);
-
-            // Tag 列 + Value 列
-            QString val = ArxmlParser::collectChildText(el, "VALUE");
-            QStandardItem *tagCol = new QStandardItem(tag);
-            QStandardItem *valCol = new QStandardItem(val);
-            parent->setChild(item->row(), 1, tagCol);
-            parent->setChild(item->row(), 2, valCol);
-
-            // 递归子元素（SHORT-NAME 已作父节点名显示，跳过）
-            for (int i = 0; i < children.count(); i++) {
-                QDomNode child = children.at(i);
-                if (!child.isElement()) continue;
-                QString childTag = child.toElement().tagName();
-                if (childTag == "SHORT-NAME") continue;
-                walk(child.toElement(), item);
-            }
-        };
-
     QDomNodeList topChildren = root.childNodes();
     for (int i = 0; i < topChildren.count(); i++) {
         if (topChildren.at(i).isElement())
-            walk(topChildren.at(i).toElement(), fileItem);
+            walkDomNode(topChildren.at(i).toElement(), fileItem, "", filePath);
     }
 
-    if (fileItem->rowCount() == 0) {
+    if (fileItem->rowCount() == 0)
         m_treeModel->invisibleRootItem()->removeRow(fileItem->row());
+}
+
+void MainWindow::walkDomNode(const QDomElement &el, QStandardItem *parent,
+                              const QString &pathPrefix, const QString &filePath)
+{
+    QString tag  = el.tagName();
+    QString uuid = el.attribute("UUID");
+
+    QDomNodeList children = el.childNodes();
+    int elemCount = 0;
+    for (int i = 0; i < children.count(); i++) {
+        if (children.at(i).isElement())
+            elemCount++;
+    }
+
+    QString shortName = ArxmlParser::collectChildText(el, "SHORT-NAME");
+    QString nameText = el.text().trimmed();
+
+    // 纯容器：无 UUID 且无 SHORT-NAME → 跳过但继续递归
+    if (uuid.isEmpty() && shortName.isEmpty() && elemCount > 0) {
+        for (int i = 0; i < children.count(); i++) {
+            QDomNode child = children.at(i);
+            if (child.isElement())
+                walkDomNode(child.toElement(), parent, pathPrefix, filePath);
+        }
+        return;
+    }
+
+    // 构建当前节点路径（无 SHORT-NAME 则路径不变）
+    QString curPath;
+    if(shortName.isEmpty()){
+        curPath = pathPrefix;
+    }else{
+        curPath = pathPrefix + "/" + shortName;
+    }
+
+    QString display;
+    if (tag == "SHORT-NAME")
+        display = "◆";
+    else if (elemCount == 0)
+        display = nameText.isEmpty() ? tag : nameText;
+    else
+        display = shortName.isEmpty() ? tag : shortName;
+
+    QStandardItem *item = new QStandardItem(display);
+    item->setData(uuid, Qt::UserRole);
+    item->setData(tag,  Qt::UserRole + 1);
+    item->setData(filePath, Qt::UserRole + 2);
+    item->setData(curPath, Qt::UserRole + 3);
+    item->setToolTip(curPath);
+    item->setFlags(item->flags() & ~Qt::ItemIsEditable);
+
+    if (tag == "SHORT-NAME")
+        item->setForeground(QColor(ARXML_COLOR_ANCHOR));
+    else if (elemCount > 0)
+        item->setForeground(QColor(ARXML_COLOR_CONTAINER));
+    else if (!uuid.isEmpty())
+        item->setForeground(QColor(ARXML_COLOR_UUID_LEAF));
+    else if (tag.contains("REF"))
+        item->setForeground(QColor(ARXML_COLOR_REFERENCE));
+    else
+        item->setForeground(QColor(ARXML_COLOR_PLAIN_LEAF));
+
+    parent->appendRow(item);
+
+    QString val = ArxmlParser::collectChildText(el, "VALUE");
+    QStandardItem *tagCol = new QStandardItem(tag);
+    QStandardItem *valCol = new QStandardItem(val);
+    parent->setChild(item->row(), 1, tagCol);
+    parent->setChild(item->row(), 2, valCol);
+
+    for (int i = 0; i < children.count(); i++) {
+        QDomNode child = children.at(i);
+        if (child.isElement())
+            walkDomNode(child.toElement(), item, curPath, filePath);
     }
 }
 
