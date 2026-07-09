@@ -30,6 +30,16 @@ QTreeView {
     font-size: 13px;
     outline: none;
 }
+QHeaderView::section {
+    background: #323233;
+    color: #CCCCCC;
+    border: none;
+    border-bottom: 1px solid #3C3C3C;
+    padding: 5px 10px;
+    font-size: 12px;
+    font-weight: normal;
+}
+
 QTreeView::item:hover {
     background: #2A2D2E;
 }
@@ -67,8 +77,8 @@ QPushButton:pressed {
 }
 
 QStatusBar {
-    background: #007ACC;
-    color: #FFFFFF;
+    background: #323233;
+    color: #CCCCCC;
     border: none;
     font-size: 12px;
 }

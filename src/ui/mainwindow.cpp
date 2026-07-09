@@ -36,7 +36,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     // 右侧：XML 树
     m_treeModel = new QStandardItemModel(this);
-    m_treeModel->setHorizontalHeaderLabels({"Name", "Tag", "Value", "Depth"});
+    m_treeModel->setHorizontalHeaderLabels({"Name", "Tag"});
     m_treeView->setModel(m_treeModel);
     m_treeView->setAlternatingRowColors(true);
     m_treeView->setAnimated(true);
@@ -97,7 +97,8 @@ void MainWindow::openDirectory(const QString &dirPath)
     m_parsers.clear();
     m_treeModel->removeRows(0, m_treeModel->rowCount());
 
-    if (!m_db->init(":memory:")) {
+    QString dbPath = dirPath + "/.index.db";
+    if (!m_db->init(dbPath)) {
         statusBar()->showMessage("DB init failed");
         return;
     }
@@ -236,11 +237,8 @@ void MainWindow::walkDomNode(const QDomElement &el, QStandardItem *parent,
 
     parent->appendRow(item);
 
-    QString val = ArxmlParser::collectChildText(el, "VALUE");
     QStandardItem *tagCol = new QStandardItem(tag);
-    QStandardItem *valCol = new QStandardItem(val);
     parent->setChild(item->row(), 1, tagCol);
-    parent->setChild(item->row(), 2, valCol);
 
     for (int i = 0; i < children.count(); i++) {
         QDomNode child = children.at(i);
@@ -252,7 +250,34 @@ void MainWindow::walkDomNode(const QDomElement &el, QStandardItem *parent,
 void MainWindow::onSearch()
 {
     QString keyword = m_searchInput->text().trimmed();
-    if (keyword.isEmpty()) return;
+
+    // file: 指令：过滤左侧文件列表
+    if (keyword.startsWith("file:")) {
+        QString pattern = keyword.mid(5).trimmed();
+        if (pattern.isEmpty()) {
+            // 恢复全部显示
+            for (int r = 0; r < m_fileModel->rowCount(); r++)
+                m_fileTree->setRowHidden(r, QModelIndex(), false);
+            statusBar()->showMessage("Showing all files");
+            return;
+        }
+        int visible = 0;
+        for (int r = 0; r < m_fileModel->rowCount(); r++) {
+            bool match = m_fileModel->item(r)->text().contains(pattern, Qt::CaseInsensitive);
+            m_fileTree->setRowHidden(r, QModelIndex(), !match);
+            if (match) visible++;
+        }
+        statusBar()->showMessage(QString("Filter: file contains \"%1\" (%2 files)").arg(pattern).arg(visible));
+        return;
+    }
+
+    if (keyword.isEmpty()) {
+        // 空搜索 → 恢复全部文件 + 清状态
+        for (int r = 0; r < m_fileModel->rowCount(); r++)
+            m_fileTree->setRowHidden(r, QModelIndex(), false);
+        statusBar()->showMessage("Ready");
+        return;
+    }
 
     QSqlQuery q = m_db->searchByShortName(keyword);
     QStringList foundUuids;
