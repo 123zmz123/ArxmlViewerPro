@@ -58,6 +58,17 @@ MainWindow::MainWindow(QWidget *parent)
             openDirectory(m_currentDir);
     });
     connect(m_fileTree, &QTreeView::clicked, this, &MainWindow::onFileClicked);
+
+    // 双击切换完整/简略路径
+    connect(m_treeView, &QTreeView::doubleClicked, this, [this](const QModelIndex &idx) {
+        QString full = idx.data(Qt::UserRole + 4).toString();
+        if (full.isEmpty() || !full.contains("/")) return;
+
+        QString cur = idx.data(Qt::DisplayRole).toString();
+        m_treeModel->setData(idx,
+            cur.startsWith("...") ? full : (".../" + full.section('/', -1)),
+            Qt::DisplayRole);
+    });
 }
 
 MainWindow::~MainWindow()
@@ -112,7 +123,13 @@ void MainWindow::openDirectory(const QString &dirPath)
     m_fileModel->removeRows(0, m_fileModel->rowCount());
     m_treeModel->removeRows(0, m_treeModel->rowCount());
 
+    int idx = 0;
     for (const QString &filePath : files) {
+        idx++;
+        statusBar()->showMessage(
+            QString("Indexing %1/%2: %3").arg(idx).arg(files.size()).arg(QFileInfo(filePath).fileName()));
+        qApp->processEvents();
+
         auto *parser = new ArxmlParser;
         if (!parser->parseFile(filePath)) {
             qWarning() << "Failed to parse:" << filePath;
@@ -209,18 +226,29 @@ void MainWindow::walkDomNode(const QDomElement &el, QStandardItem *parent,
     }
 
     QString display;
+    QString fullText;
+
     if (tag == "SHORT-NAME")
         display = "◆";
-    else if (elemCount == 0)
-        display = nameText.isEmpty() ? tag : nameText;
-    else
+    else if (elemCount == 0) {
+        QString text = el.text().trimmed();
+        if (text.contains("/")) {
+            display  = ".../" + text.section('/', -1);
+            fullText = text;
+        } else {
+            display  = text.isEmpty() ? tag : text;
+            fullText = text;
+        }
+    } else {
         display = shortName.isEmpty() ? tag : shortName;
+    }
 
     QStandardItem *item = new QStandardItem(display);
     item->setData(uuid, Qt::UserRole);
     item->setData(tag,  Qt::UserRole + 1);
     item->setData(filePath, Qt::UserRole + 2);
     item->setData(curPath, Qt::UserRole + 3);
+    item->setData(fullText, Qt::UserRole + 4);
     item->setToolTip(curPath);
     item->setFlags(item->flags() & ~Qt::ItemIsEditable);
 
