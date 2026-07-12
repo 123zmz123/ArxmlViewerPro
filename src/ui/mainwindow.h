@@ -28,6 +28,7 @@ private slots:
     void onSearch();
     void onOpenFolder();
     void onFileClicked(const QModelIndex &index);
+    void onTreeContextMenu(const QPoint &pos);
 
 private:
     void buildTreeFromParser(ArxmlParser &parser, const QString &filePath);

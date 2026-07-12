@@ -7,6 +7,7 @@
 #include "arxmlcolors.h"
 
 #include <QDebug>
+#include <QClipboard>
 #include <QDir>
 #include <QFile>
 #include <QFileDialog>
@@ -41,6 +42,7 @@ MainWindow::MainWindow(QWidget *parent)
     m_treeView->setAlternatingRowColors(true);
     m_treeView->setAnimated(true);
     m_treeView->setSortingEnabled(true);
+    m_treeView->setContextMenuPolicy(Qt::CustomContextMenu);
 
     // splitter 比例：左侧 1/4，右侧 3/4
     ui->splitter->setStretchFactor(0, 1);
@@ -69,6 +71,9 @@ MainWindow::MainWindow(QWidget *parent)
             cur.startsWith("...") ? full : (".../" + full.section('/', -1)),
             Qt::DisplayRole);
     });
+
+    // 右键菜单
+    connect(m_treeView, &QTreeView::customContextMenuRequested, this, &MainWindow::onTreeContextMenu);
 }
 
 MainWindow::~MainWindow()
@@ -338,4 +343,49 @@ void MainWindow::onSearch()
 
     for (int r = 0; r < m_treeModel->rowCount(); r++)
         highlight(m_treeModel->item(r));
+}
+
+void MainWindow::onTreeContextMenu(const QPoint &pos)
+{
+    QModelIndex idx = m_treeView->indexAt(pos);
+    if (!idx.isValid()) return;
+
+    QString fullText = idx.data(Qt::UserRole + 4).toString();
+    bool isPath = fullText.contains("/");
+
+    QMenu menu;
+    QAction *navAction = menu.addAction("Navigate to Reference");
+    navAction->setEnabled(isPath);
+
+    QAction *copyAction = menu.addAction("Copy Path");
+    copyAction->setEnabled(true);
+
+    QAction *chosen = menu.exec(m_treeView->viewport()->mapToGlobal(pos));
+    if (chosen == navAction && isPath) {
+        // 调试：查询 DB 并显示结果
+        QSqlQuery q = m_db->searchByFullPath(fullText, "%");
+        if (!q.next()) {
+            QMessageBox::information(this, "DB Query",
+                                     "No match found for:\n" + fullText);
+            return;
+        }
+
+        QStringList results;
+        do {
+            results.append(QString("UUID: %1\nTag: %2\nShortName: %3\nFile: %4\nFullPath: %5")
+                .arg(q.value("uuid").toString(),
+                     q.value("tag_name").toString(),
+                     q.value("short_name").toString(),
+                     q.value("file_path").toString(),
+                     q.value("full_path").toString()));
+        } while (q.next());
+
+        QMessageBox::information(this, "DB Query Result",
+                                 QString("Path: %1\n\nMatches: %2\n\n%3")
+                                     .arg(fullText).arg(results.size())
+                                     .arg(results.join("\n\n")));
+    } else if (chosen == copyAction) {
+        QString curPath = idx.data(Qt::UserRole + 3).toString();
+        QApplication::clipboard()->setText(curPath);
+    }
 }

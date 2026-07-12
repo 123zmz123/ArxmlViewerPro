@@ -4,6 +4,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QDomNodeList>
+#include <QUuid>
 
 bool ArxmlParser::parseFile(const QString &filePath)
 {
@@ -198,6 +199,8 @@ void ArxmlParser::indexElementToDb(ArxmlDatabase &db, const QDomElement &el,
         parentPath = pathPrefix;
     }else{
         parentPath = pathPrefix + "/" + shortName;  
+        db.insertElement(QUuid::createUuid().toString(QUuid::WithoutBraces),
+                         "", "justPath", m_filePath, depth, parentPath, "");
     }
 
     QDomNodeList children = el.childNodes();
