@@ -11,6 +11,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFileDialog>
+#include <QInputDialog>
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QStandardItemModel>
@@ -370,20 +371,73 @@ void MainWindow::onTreeContextMenu(const QPoint &pos)
             return;
         }
 
-        QStringList results;
+        QStringList fileList;
+        struct PathInfo { QString filePath; QString fullPath; };
+        QList<PathInfo> pathInfos;
         do {
-            results.append(QString("UUID: %1\nTag: %2\nShortName: %3\nFile: %4\nFullPath: %5")
-                .arg(q.value("uuid").toString(),
-                     q.value("tag_name").toString(),
-                     q.value("short_name").toString(),
-                     q.value("file_path").toString(),
-                     q.value("full_path").toString()));
+            if (q.value("short_name").toString() == "justPath") {
+                QString fp = q.value("file_path").toString();
+                QString path = q.value("full_path").toString();
+                fileList << QFileInfo(fp).fileName() + "  →  " + path;
+                pathInfos.append({fp, path});
+            }
         } while (q.next());
 
-        QMessageBox::information(this, "DB Query Result",
-                                 QString("Path: %1\n\nMatches: %2\n\n%3")
-                                     .arg(fullText).arg(results.size())
-                                     .arg(results.join("\n\n")));
+        if (fileList.isEmpty()) {
+            QMessageBox::information(this, "Navigate", "No match found.");
+            return;
+        }
+
+        // 选目标
+        QString chosen;
+        int chosenIdx = 0;
+        if (fileList.size() == 1) {
+            chosen = fileList[0];
+        } else {
+            bool ok;
+            chosen = QInputDialog::getItem(this, "Navigate to Reference",
+                                           "Select target:", fileList, 0, false, &ok);
+            if (!ok) return;
+        }
+        chosenIdx = fileList.indexOf(chosen);
+        if (chosenIdx < 0) return;
+
+        QString targetFile   = pathInfos[chosenIdx].filePath;
+        QString targetPath   = pathInfos[chosenIdx].fullPath;
+
+        // 切换到目标文件
+        for (int r = 0; r < m_fileModel->rowCount(); r++) {
+            if (m_fileModel->item(r)->data(Qt::UserRole).toString() == targetFile) {
+                m_fileTree->setCurrentIndex(m_fileModel->index(r, 0));
+                onFileClicked(m_fileModel->index(r, 0));
+                break;
+            }
+        }
+
+        // 在右侧树中匹配路径
+        std::function<QModelIndex(QStandardItem *, const QString &)> findByPath =
+            [&](QStandardItem *item, const QString &path) -> QModelIndex {
+                if (item->data(Qt::UserRole + 3).toString() == path)
+                    return item->index();
+                for (int r = 0; r < item->rowCount(); r++) {
+                    QModelIndex found = findByPath(item->child(r), path);
+                    if (found.isValid()) return found;
+                }
+                return QModelIndex();
+            };
+
+        QModelIndex targetIdx;
+        for (int r = 0; r < m_treeModel->rowCount(); r++) {
+            targetIdx = findByPath(m_treeModel->item(r), targetPath);
+            if (targetIdx.isValid()) break;
+        }
+
+        if (targetIdx.isValid()) {
+            m_treeView->scrollTo(targetIdx);
+            m_treeView->setCurrentIndex(targetIdx);
+            statusBar()->showMessage(
+                QString("Navigated to %1").arg(QFileInfo(targetFile).fileName()));
+        }
     } else if (chosen == copyAction) {
         QString curPath = idx.data(Qt::UserRole + 3).toString();
         QApplication::clipboard()->setText(curPath);

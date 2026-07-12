@@ -229,7 +229,6 @@ QSqlQuery ArxmlDatabase::searchByFullPath(const QString &fullPath, const QString
     q.exec();
     return q;
 }
-
 QSqlQuery ArxmlDatabase::allElements(const QString &filePath)
 {
     QSqlQuery q(m_db);
