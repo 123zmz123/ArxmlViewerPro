@@ -10,6 +10,7 @@
 #include <QClipboard>
 #include <QDir>
 #include <QFile>
+#include <QShortcut>
 #include <QFileDialog>
 #include <QInputDialog>
 #include <QLineEdit>
@@ -44,6 +45,7 @@ MainWindow::MainWindow(QWidget *parent)
     m_treeView->setAnimated(true);
     m_treeView->setSortingEnabled(true);
     m_treeView->setContextMenuPolicy(Qt::CustomContextMenu);
+    m_treeView->header()->setStretchLastSection(true);
 
     // splitter 比例：左侧 1/4，右侧 3/4
     ui->splitter->setStretchFactor(0, 1);
@@ -75,6 +77,17 @@ MainWindow::MainWindow(QWidget *parent)
 
     // 右键菜单
     connect(m_treeView, &QTreeView::customContextMenuRequested, this, &MainWindow::onTreeContextMenu);
+
+    // 前进/后退菜单项（用 MainWindow 的 addAction 确保快捷键全局生效）
+    QMenu *navMenu = ui->menubar->addMenu("Navigate");
+    QAction *backAction  = navMenu->addAction("← Back");
+    QAction *forwardAction = navMenu->addAction("Forward →");
+    backAction->setShortcut(QKeySequence("Alt+Left"));
+    forwardAction->setShortcut(QKeySequence("Alt+Right"));
+    connect(backAction, &QAction::triggered, this, &MainWindow::onBack);
+    connect(forwardAction, &QAction::triggered, this, &MainWindow::onForward);
+    addAction(backAction);
+    addAction(forwardAction);
 }
 
 MainWindow::~MainWindow()
@@ -113,6 +126,9 @@ void MainWindow::openDirectory(const QString &dirPath)
     qDeleteAll(m_parsers);
     m_parsers.clear();
     m_treeModel->removeRows(0, m_treeModel->rowCount());
+    m_backStack.clear();
+    m_forwardStack.clear();
+    m_currentFilePath.clear();
 
     QString dbPath = dirPath + "/.index.db";
     if (!m_db->init(dbPath)) {
@@ -170,6 +186,8 @@ void MainWindow::onFileClicked(const QModelIndex &index)
     m_treeModel->removeRows(0, m_treeModel->rowCount());
     buildTreeFromParser(**it, filePath);
     m_treeView->expandAll();
+
+    m_currentFilePath = filePath;
 
     statusBar()->showMessage(
         QString("%1 | %2 elements").arg(QFileInfo(filePath).fileName())
@@ -405,6 +423,9 @@ void MainWindow::onTreeContextMenu(const QPoint &pos)
         QString targetFile   = pathInfos[chosenIdx].filePath;
         QString targetPath   = pathInfos[chosenIdx].fullPath;
 
+        // 记录当前位置用于回退
+        recordCurrentPosition();
+
         // 切换到目标文件
         for (int r = 0; r < m_fileModel->rowCount(); r++) {
             if (m_fileModel->item(r)->data(Qt::UserRole).toString() == targetFile) {
@@ -442,4 +463,79 @@ void MainWindow::onTreeContextMenu(const QPoint &pos)
         QString curPath = idx.data(Qt::UserRole + 3).toString();
         QApplication::clipboard()->setText(curPath);
     }
+}
+
+void MainWindow::recordCurrentPosition()
+{
+    QModelIndex curIdx = m_treeView->currentIndex();
+    QString curPath = curIdx.isValid() ? curIdx.data(Qt::UserRole + 3).toString() : "";
+    m_backStack.append({m_currentFilePath, curPath});
+    m_forwardStack.clear();  // 新跳转覆盖前进历史
+}
+
+void MainWindow::navigateToPosition(const NavPosition &pos)
+{
+    // 切换到文件
+    for (int r = 0; r < m_fileModel->rowCount(); r++) {
+        if (m_fileModel->item(r)->data(Qt::UserRole).toString() == pos.filePath) {
+            m_fileTree->setCurrentIndex(m_fileModel->index(r, 0));
+            onFileClicked(m_fileModel->index(r, 0));
+            break;
+        }
+    }
+
+    // 定位路径
+    if (!pos.curPath.isEmpty()) {
+        std::function<QModelIndex(QStandardItem *, const QString &)> findByPath =
+            [&](QStandardItem *item, const QString &path) -> QModelIndex {
+                if (item->data(Qt::UserRole + 3).toString() == path)
+                    return item->index();
+                for (int r = 0; r < item->rowCount(); r++) {
+                    QModelIndex found = findByPath(item->child(r), path);
+                    if (found.isValid()) return found;
+                }
+                return QModelIndex();
+            };
+
+        QModelIndex targetIdx;
+        for (int r = 0; r < m_treeModel->rowCount(); r++) {
+            targetIdx = findByPath(m_treeModel->item(r), pos.curPath);
+            if (targetIdx.isValid()) break;
+        }
+
+        if (targetIdx.isValid()) {
+            m_treeView->scrollTo(targetIdx);
+            m_treeView->setCurrentIndex(targetIdx);
+        }
+    }
+
+    m_currentFilePath = pos.filePath;
+}
+
+void MainWindow::onBack()
+{
+    if (m_backStack.isEmpty()) return;
+
+    // 当前位置入前进栈
+    QModelIndex curIdx = m_treeView->currentIndex();
+    QString curPath = curIdx.isValid() ? curIdx.data(Qt::UserRole + 3).toString() : "";
+    m_forwardStack.append({m_currentFilePath, curPath});
+
+    NavPosition pos = m_backStack.takeLast();
+    navigateToPosition(pos);
+    statusBar()->showMessage(QString("Back to %1").arg(QFileInfo(pos.filePath).fileName()));
+}
+
+void MainWindow::onForward()
+{
+    if (m_forwardStack.isEmpty()) return;
+
+    // 当前位置入后退栈
+    QModelIndex curIdx = m_treeView->currentIndex();
+    QString curPath = curIdx.isValid() ? curIdx.data(Qt::UserRole + 3).toString() : "";
+    m_backStack.append({m_currentFilePath, curPath});
+
+    NavPosition pos = m_forwardStack.takeLast();
+    navigateToPosition(pos);
+    statusBar()->showMessage(QString("Forward to %1").arg(QFileInfo(pos.filePath).fileName()));
 }

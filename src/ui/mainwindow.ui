@@ -16,7 +16,7 @@
       <item>
        <widget class="QLineEdit" name="searchInput">
         <property name="placeholderText">
-         <string>Search by short-name or tag-name...</string>
+         <string>file:spi ......</string>
         </property>
         <property name="minimumHeight"><number>32</number></property>
        </widget>
