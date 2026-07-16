@@ -10,6 +10,8 @@
 #include <QClipboard>
 #include <QDir>
 #include <QFile>
+#include <QHBoxLayout>
+#include <QMouseEvent>
 #include <QShortcut>
 #include <QFileDialog>
 #include <QInputDialog>
@@ -22,8 +24,20 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
     , m_db(new ArxmlDatabase)
+    , m_titleBar(nullptr)
 {
     ui->setupUi(this);
+
+    // 隐藏原生标题栏
+    setWindowFlags(Qt::FramelessWindowHint);
+    ui->menubar->setVisible(false);
+
+    // 清除 centralwidget 布局边距，让标题栏紧贴上边沿
+    QVBoxLayout *mainLayout = qobject_cast<QVBoxLayout *>(ui->centralwidget->layout());
+    if (mainLayout)
+        mainLayout->setContentsMargins(0, 0, 0, 0);
+
+    setupTitleBar();
     loadStyleSheet();
 
     m_searchInput = ui->searchInput;
@@ -78,10 +92,9 @@ MainWindow::MainWindow(QWidget *parent)
     // 右键菜单
     connect(m_treeView, &QTreeView::customContextMenuRequested, this, &MainWindow::onTreeContextMenu);
 
-    // 前进/后退菜单项（用 MainWindow 的 addAction 确保快捷键全局生效）
-    QMenu *navMenu = ui->menubar->addMenu("Navigate");
-    QAction *backAction  = navMenu->addAction("← Back");
-    QAction *forwardAction = navMenu->addAction("Forward →");
+    // 创建独立 QAction 用于快捷键
+    QAction *backAction  = new QAction("← Back", this);
+    QAction *forwardAction = new QAction("Forward →", this);
     backAction->setShortcut(QKeySequence("Alt+Left"));
     forwardAction->setShortcut(QKeySequence("Alt+Right"));
     connect(backAction, &QAction::triggered, this, &MainWindow::onBack);
@@ -95,6 +108,96 @@ MainWindow::~MainWindow()
     qDeleteAll(m_parsers);
     delete m_db;
     delete ui;
+}
+
+void MainWindow::setupTitleBar()
+{
+    m_titleBar = new QWidget(this);
+    m_titleBar->setObjectName("titleBar");
+    m_titleBar->setFixedHeight(36);
+
+    // Project 菜单按钮
+    QPushButton *projectBtn = new QPushButton("☰ Project");
+    projectBtn->setObjectName("titleProjectBtn");
+
+    // Navigate 菜单按钮
+    QPushButton *navBtn = new QPushButton("Navigate");
+    navBtn->setObjectName("titleNavBtn");
+
+    QPushButton *minBtn = new QPushButton("─");
+    minBtn->setObjectName("titleMinBtn");
+    QPushButton *maxBtn = new QPushButton("□");
+    maxBtn->setObjectName("titleMaxBtn");
+    QPushButton *closeBtn = new QPushButton("✕");
+    closeBtn->setObjectName("titleCloseBtn");
+
+    QHBoxLayout *layout = new QHBoxLayout(m_titleBar);
+    layout->setContentsMargins(8, 0, 4, 0);
+    layout->setSpacing(4);
+    layout->addWidget(projectBtn);
+    layout->addWidget(navBtn);
+    layout->addStretch();
+    layout->addWidget(minBtn);
+    layout->addWidget(maxBtn);
+    layout->addWidget(closeBtn);
+
+    // 插入到 centralWidget 上方
+    QVBoxLayout *mainLayout = qobject_cast<QVBoxLayout *>(ui->centralwidget->layout());
+    if (mainLayout)
+        mainLayout->insertWidget(0, m_titleBar);
+
+    // Project 菜单
+    QMenu *projectMenu = new QMenu(this);
+    projectMenu->addAction(ui->actionOpen);
+    projectMenu->addAction(ui->actionRefresh);
+    projectMenu->addSeparator();
+    projectMenu->addAction(ui->actionExit);
+    connect(projectBtn, &QPushButton::clicked, this, [projectMenu, projectBtn]() {
+        projectMenu->exec(projectBtn->mapToGlobal(QPoint(0, projectBtn->height())));
+    });
+
+    // Navigate 菜单
+    QMenu *navMenu = new QMenu(this);
+    QAction *backAction2  = navMenu->addAction("← Back");
+    QAction *forwardAction2 = navMenu->addAction("Forward →");
+    backAction2->setShortcut(QKeySequence("Alt+Left"));
+    forwardAction2->setShortcut(QKeySequence("Alt+Right"));
+    connect(backAction2, &QAction::triggered, this, &MainWindow::onBack);
+    connect(forwardAction2, &QAction::triggered, this, &MainWindow::onForward);
+    connect(navBtn, &QPushButton::clicked, this, [navMenu, navBtn]() {
+        navMenu->exec(navBtn->mapToGlobal(QPoint(0, navBtn->height())));
+    });
+
+    // 窗口控制
+    connect(minBtn, &QPushButton::clicked, this, &MainWindow::showMinimized);
+    connect(maxBtn, &QPushButton::clicked, this, [this]() {
+        isMaximized() ? showNormal() : showMaximized();
+    });
+    connect(closeBtn, &QPushButton::clicked, this, &MainWindow::close);
+}
+
+void MainWindow::mousePressEvent(QMouseEvent *event)
+{
+    if (m_titleBar && m_titleBar->rect().contains(event->pos())) {
+        m_dragPos = event->globalPosition().toPoint() - frameGeometry().topLeft();
+    }
+    QMainWindow::mousePressEvent(event);
+}
+
+void MainWindow::mouseMoveEvent(QMouseEvent *event)
+{
+    if (event->buttons() & Qt::LeftButton && !m_dragPos.isNull()) {
+        move(event->globalPosition().toPoint() - m_dragPos);
+    }
+    QMainWindow::mouseMoveEvent(event);
+}
+
+void MainWindow::mouseDoubleClickEvent(QMouseEvent *event)
+{
+    if (m_titleBar && m_titleBar->rect().contains(event->pos())) {
+        isMaximized() ? showNormal() : showMaximized();
+    }
+    QMainWindow::mouseDoubleClickEvent(event);
 }
 
 void MainWindow::loadStyleSheet()

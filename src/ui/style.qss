@@ -1,15 +1,39 @@
 QMainWindow {
     background: #2B2D30;
 }
-QMenuBar {
+
+/* ---- 自定义标题栏 ---- */
+QWidget#titleBar {
     background: #2B2D30;
-    color: #A9B7C6;
-    border-bottom: 1px solid #323232;
-    padding: 4px;
 }
-QMenuBar::item:selected {
-    background: #4B6EAF;
+QPushButton#titleProjectBtn, QPushButton#titleNavBtn {
+    background: transparent;
+    color: #A9B7C6;
+    border: none;
     border-radius: 4px;
+    padding: 4px 10px;
+    font-size: 13px;
+}
+QPushButton#titleProjectBtn:hover, QPushButton#titleNavBtn:hover {
+    background: #4B6EAF;
+    color: #FFFFFF;
+}
+QPushButton#titleMinBtn, QPushButton#titleMaxBtn, QPushButton#titleCloseBtn {
+    background: transparent;
+    color: #A9B7C6;
+    border: none;
+    border-radius: 4px;
+    padding: 4px 10px;
+    font-size: 14px;
+    min-width: 32px;
+}
+QPushButton#titleMinBtn:hover, QPushButton#titleMaxBtn:hover {
+    background: #45494A;
+    color: #FFFFFF;
+}
+QPushButton#titleCloseBtn:hover {
+    background: #C75450;
+    color: #FFFFFF;
 }
 QMenu {
     background: #2B2D30;

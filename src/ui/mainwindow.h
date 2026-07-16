@@ -3,6 +3,7 @@
 
 #include <QMainWindow>
 #include <QMap>
+#include <QPoint>
 
 class ArxmlParser;
 class ArxmlDatabase;
@@ -10,6 +11,7 @@ class QDomElement;
 class QStandardItem;
 class QTreeView;
 class QLineEdit;
+class QPushButton;
 class QStandardItemModel;
 
 namespace Ui { class MainWindow; }
@@ -23,6 +25,11 @@ public:
     ~MainWindow();
 
     void openDirectory(const QString &dirPath);
+
+protected:
+    void mousePressEvent(QMouseEvent *event) override;
+    void mouseMoveEvent(QMouseEvent *event) override;
+    void mouseDoubleClickEvent(QMouseEvent *event) override;
 
 private slots:
     void onSearch();
@@ -41,6 +48,7 @@ private:
     void buildTreeFromParser(ArxmlParser &parser, const QString &filePath);
     void walkDomNode(const QDomElement &el, QStandardItem *parent,
                      const QString &pathPrefix, const QString &filePath);
+    void setupTitleBar();
     void loadStyleSheet();
     void recordCurrentPosition();
     void navigateToPosition(const NavPosition &pos);
@@ -48,6 +56,10 @@ private:
     Ui::MainWindow *ui;
     QString m_currentDir;
     QString m_currentFilePath;
+
+    // 自定义标题栏
+    QWidget *m_titleBar;
+    QPoint m_dragPos;
 
     QTreeView *m_fileTree;
     QTreeView *m_treeView;
