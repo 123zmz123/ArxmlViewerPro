@@ -1,10 +1,11 @@
 #include <QApplication>
-#include <QDebug>
+#include <QIcon>
 #include "ui/mainwindow.h"
 
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
+    app.setWindowIcon(QIcon(":/ui/icon.png"));
 
     MainWindow w;
     w.show();
