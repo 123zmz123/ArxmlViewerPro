@@ -1,0 +1,70 @@
+name: Build Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  linux:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.5.*'
+          host: 'linux'
+          target: 'desktop'
+          arch: 'gcc_64'
+          cache: true
+      - run: sudo apt update && sudo apt install -y libqt6sql6-sqlite
+      - run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+      - run: cmake --build build --config Release
+      - run: |
+          cat > build/default.desktop << 'EOF'
+          [Desktop Entry]
+          Type=Application
+          Name=ARXML Viewer Pro
+          Exec=ArxmlViewerPro
+          Icon=ArxmlViewerPro
+          Categories=Utility;
+          EOF
+          cp src/ui/icon.png build/ArxmlViewerPro.png
+      - run: |
+          wget -q https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage
+          chmod +x linuxdeployqt-continuous-x86_64.AppImage
+          ./linuxdeployqt-continuous-x86_64.AppImage build/ArxmlViewerPro -appimage -no-translations
+      - run: mkdir release && mv *.AppImage release/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ArxmlViewerPro-Linux-x86_64
+          path: release/*
+
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-qt6-static
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-libpng
+            mingw-w64-x86_64-harfbuzz
+            mingw-w64-x86_64-freetype
+            mingw-w64-x86_64-fontconfig
+            mingw-w64-x86_64-libwebp
+      - run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+      - run: cmake --build build
+      - run: mkdir release && mv build/ArxmlViewerPro.exe release/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ArxmlViewerPro-Windows-x64
+          path: release/*

@@ -202,12 +202,12 @@ void MainWindow::mouseDoubleClickEvent(QMouseEvent *event)
 
 void MainWindow::loadStyleSheet()
 {
-    QFile qss("src/ui/style.qss");
+    QFile qss(":/ui/style.qss");
     if (qss.open(QFile::ReadOnly)) {
         setStyleSheet(qss.readAll());
         qss.close();
     } else {
-        qWarning() << "Cannot load style.qss";
+        qWarning() << "Cannot load style.qss from resources";
     }
 }
 
