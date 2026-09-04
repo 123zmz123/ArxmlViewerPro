@@ -56,23 +56,83 @@ jobs:
           msystem: MINGW64
           update: true
           install: >-
-            mingw-w64-x86_64-qt6-static
+            mingw-w64-x86_64-qt6-base
             mingw-w64-x86_64-cmake
             mingw-w64-x86_64-ninja
             mingw-w64-x86_64-gcc
-            mingw-w64-x86_64-libpng
-            mingw-w64-x86_64-harfbuzz
-            mingw-w64-x86_64-freetype
-            mingw-w64-x86_64-fontconfig
-            mingw-w64-x86_64-libwebp
-      - run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
-      - run: cmake --build build
-      - run: mkdir release && mv build/ArxmlViewerPro.exe release/
+      - name: Build (CMake)
+        run: |
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build
+      - name: Deploy (bundle Qt DLLs, plugins & MinGW runtime DLLs)
+        run: |
+          set -euo pipefail
+          rm -rf release
+          mkdir -p release/plugins
+
+          # --- Qt 运行时插件（platforms 必须有，否则提示找不到 windows 平台插件）---
+          QT_PLUGIN_DIR=/mingw64/share/qt6/plugins
+          cp -r "$QT_PLUGIN_DIR/platforms"     release/plugins/
+          cp -r "$QT_PLUGIN_DIR/styles"        release/plugins/
+          cp -r "$QT_PLUGIN_DIR/imageformats"  release/plugins/
+          mkdir -p release/plugins/sqldrivers
+          cp "$QT_PLUGIN_DIR/sqldrivers/qsqlite.dll" release/plugins/sqldrivers/
+          if [ -d "$QT_PLUGIN_DIR/iconengines" ]; then
+            cp -r "$QT_PLUGIN_DIR/iconengines" release/plugins/
+          fi
+
+          # qt.conf：显式告诉 Qt 插件位于 exe 同目录的 plugins/ 下
+          cat > release/qt.conf << 'EOF'
+          [Paths]
+          Prefix = .
+          Plugins = plugins
+          EOF
+
+          cp build/ArxmlViewerPro.exe release/
+
+          # --- 递归收集 exe 与所有插件的 DLL 依赖（Qt6*.dll / libb2-1.dll /
+          #     ICU / libgcc_s_seh-1.dll / libstdc++-6.dll / libwinpthread-1.dll ...）---
+          queue=(release/ArxmlViewerPro.exe)
+          while IFS= read -r f; do queue+=("$f"); done < <(find release/plugins -name '*.dll')
+          seen=""
+          while [ "${#queue[@]}" -gt 0 ]; do
+            cur="${queue[0]}"
+            queue=("${queue[@]:1}")
+            while IFS= read -r dll; do
+              case " $seen " in
+                *" $dll "*) continue ;;
+              esac
+              seen="$seen $dll"
+              if [ -f "/mingw64/bin/$dll" ]; then
+                cp "/mingw64/bin/$dll" release/
+                queue+=("release/$dll")
+              fi
+            done < <(objdump -p "$cur" | sed -n 's/.*DLL Name: //p' | sort -u)
+          done
+
+          # --- 校验：所有来自 MSYS2 的依赖都必须已收集，否则 CI 直接失败 ---
+          for f in release/ArxmlViewerPro.exe $(find release -name '*.dll'); do
+            while IFS= read -r dll; do
+              if [ -f "/mingw64/bin/$dll" ] && [ ! -f "release/$dll" ]; then
+                echo "::error::missing runtime dll: $dll (needed by ${f#release/})"
+                exit 1
+              fi
+            done < <(objdump -p "$f" | sed -n 's/.*DLL Name: //p' | sort -u)
+          done
+
+          echo "=== packaged files ==="
+          ls -la release/
+          echo "=== ArxmlViewerPro.exe import table ==="
+          objdump -p release/ArxmlViewerPro.exe | grep 'DLL Name'
+      - name: Create zip
+        run: |
+          "$(cygpath "$SYSTEMROOT")/System32/tar.exe" -a -c -f ArxmlViewerPro-Windows-x64.zip -C release .
+          ls -lh ArxmlViewerPro-Windows-x64.zip
       - uses: actions/upload-artifact@v4
         with:
           name: ArxmlViewerPro-Windows-x64
-          path: release/*
+          path: ArxmlViewerPro-Windows-x64.zip
       - uses: softprops/action-gh-release@v2
         with:
-          files: release/*
+          files: ArxmlViewerPro-Windows-x64.zip
         if: startsWith(github.ref, 'refs/tags/')
