@@ -356,7 +356,7 @@ void MainWindow::walkDomNode(const QDomElement &el, QStandardItem *parent,
     QString fullText;
 
     if (tag == "SHORT-NAME")
-        display = "◆";
+        display = "-";
     else if (elemCount == 0) {
         QString text = el.text().trimmed();
         if (text.contains("/")) {
