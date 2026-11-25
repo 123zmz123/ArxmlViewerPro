@@ -19,6 +19,36 @@
 #include <QMessageBox>
 #include <QStandardItemModel>
 #include <QTreeView>
+#include <QStyledItemDelegate>
+
+namespace {
+// 悬停把“十进制整数”显示成十六进制；只影响绘制，不改模型
+class DecToHexHoverDelegate : public QStyledItemDelegate {
+public:
+    using QStyledItemDelegate::QStyledItemDelegate;
+protected:
+    void initStyleOption(QStyleOptionViewItem *option,
+                         const QModelIndex &index) const override
+    {
+        QStyledItemDelegate::initStyleOption(option, index);
+
+        if (!(option->state & QStyle::State_MouseOver))   // 只处理鼠标悬停的格子
+            return;
+
+        const QString t = option->text.trimmed();
+        if (t.isEmpty()) return;
+        if (t.startsWith("0x", Qt::CaseInsensitive)) return;                 // 已是十六进制
+        if (t.compare("true",  Qt::CaseInsensitive) == 0 ||
+            t.compare("false", Qt::CaseInsensitive) == 0) return;            // 布尔
+
+        bool ok = false;
+        qlonglong v = t.toLongLong(&ok, 10);
+        if (!ok) return;                                                     // 不是十进制整数
+
+        option->text = QStringLiteral("0x") + QString::number(v, 16).toUpper();
+    }
+};
+} // namespace
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -55,6 +85,8 @@ MainWindow::MainWindow(QWidget *parent)
     m_treeModel = new QStandardItemModel(this);
     m_treeModel->setHorizontalHeaderLabels({"Name", "Tag"});
     m_treeView->setModel(m_treeModel);
+    m_treeView->setMouseTracking(true);                                  // 确保能收到 hover
+    m_treeView->setItemDelegate(new DecToHexHoverDelegate(m_treeView));  // 悬停显示十六进制
     m_treeView->setAlternatingRowColors(true);
     m_treeView->setAnimated(true);
     m_treeView->setSortingEnabled(true);
