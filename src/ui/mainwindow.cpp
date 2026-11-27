@@ -20,6 +20,10 @@
 #include <QStandardItemModel>
 #include <QTreeView>
 #include <QStyledItemDelegate>
+#include <QDialog>
+#include <QPlainTextEdit>
+#include <QVBoxLayout>
+#include <QFont>
 
 namespace {
 // 悬停把“十进制整数”显示成十六进制；只影响绘制，不改模型
@@ -499,6 +503,28 @@ void MainWindow::onSearch()
         highlight(m_treeModel->item(r));
 }
 
+void MainWindow::showTextDialog(const QString &title, const QString &text)
+{
+    auto *dlg = new QDialog(this);
+    dlg->setWindowTitle(title);
+    dlg->resize(760, 620);
+
+    auto *lay = new QVBoxLayout(dlg);
+    lay->setContentsMargins(0, 0, 0, 0);
+
+    auto *edit = new QPlainTextEdit(dlg);
+    QFont mono("monospace");
+    mono.setStyleHint(QFont::Monospace);
+    edit->setFont(mono);
+    edit->setReadOnly(true);
+    edit->setLineWrapMode(QPlainTextEdit::NoWrap);
+    edit->setPlainText(text);
+
+    lay->addWidget(edit);
+    dlg->setAttribute(Qt::WA_DeleteOnClose);
+    dlg->show();
+}
+
 void MainWindow::onTreeContextMenu(const QPoint &pos)
 {
     QModelIndex idx = m_treeView->indexAt(pos);
@@ -513,6 +539,9 @@ void MainWindow::onTreeContextMenu(const QPoint &pos)
 
     QAction *copyAction = menu.addAction("Copy Path");
     copyAction->setEnabled(true);
+
+    QAction *dumpAction = menu.addAction("Detail Structure");
+    dumpAction->setEnabled(true);
 
     QAction *chosen = menu.exec(m_treeView->viewport()->mapToGlobal(pos));
     if (chosen == navAction && isPath) {
@@ -597,6 +626,15 @@ void MainWindow::onTreeContextMenu(const QPoint &pos)
     } else if (chosen == copyAction) {
         QString curPath = idx.data(Qt::UserRole + 3).toString();
         QApplication::clipboard()->setText(curPath);
+    } else if (chosen == dumpAction) {
+        QString curPath  = idx.data(Qt::UserRole + 3).toString();
+        QString filePath = idx.data(Qt::UserRole + 2).toString();
+        if (ArxmlParser *p = m_parsers.value(filePath, nullptr)) {
+            showTextDialog("Structure — " + curPath, p->dumpReadableByPath(curPath));
+        } else {
+            QMessageBox::information(this, "Show Structure",
+                                     "Parser not found for this file.");
+        }
     }
 }
 

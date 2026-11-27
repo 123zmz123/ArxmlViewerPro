@@ -6,6 +6,82 @@
 #include <QDomNodeList>
 #include <QUuid>
 
+namespace {
+    bool hasElementChild(const QDomElement &el) {
+        const QDomNodeList ch = el.childNodes();
+        for(int i=0;i<ch.count();++i)
+            if (ch.at(i).isElement()) return true;
+        return false;
+    }
+
+    QString firstChildText(const QDomElement &el, const QString &tag)
+    {
+        const QDomNodeList ch = el.childNodes();
+        for (int i = 0; i < ch.count(); ++i)
+        {
+            if (ch.at(i).isElement() && ch.at(i).toElement().tagName() == tag)
+                return ch.at(i).toElement().text().trimmed();
+        }
+        return QString();
+    }
+
+    // 统计叶子(有文本的末端)数量，用于“已折叠 N 项”
+    int countLeafEntries(const QDomElement &el)
+    {
+        if (!hasElementChild(el))
+            return 1;
+        int n = 0;
+        const QDomNodeList ch = el.childNodes();
+        for (int i = 0; i < ch.count(); ++i)
+            if (ch.at(i).isElement())
+                n += countLeafEntries(ch.at(i).toElement());
+        return n;
+    }
+
+    void dumpReadableRec(const QDomElement &el,
+                         const QString &prefix, bool isLast, bool isRoot,
+                         QString &out)
+    {
+        const QString tag = el.tagName();
+
+        // 组织标签文本
+        QString label;
+        if (!hasElementChild(el))
+        { // 叶子：tag : text
+            const QString text = el.text().trimmed();
+            label = text.isEmpty() ? tag : tag + " : " + text;
+        }
+        else
+        { // 容器：tag  (shortName)
+            const QString sn = firstChildText(el, "SHORT-NAME");
+            label = sn.isEmpty() ? tag : tag + "  (" + sn + ")";
+        }
+
+        const QString connector = isRoot ? QString() : (isLast ? "└─ " : "├─ ");
+        out += prefix + connector + label;
+
+        // ADMIN-DATA 折叠成一行
+        if (tag == "ADMIN-DATA")
+        {
+            out += QString("  …（元数据，已折叠 %1 项）\n").arg(countLeafEntries(el));
+            return;
+        }
+        out += "\n";
+
+        // 收集并递归子元素
+        QList<QDomElement> kids;
+        const QDomNodeList ch = el.childNodes();
+        for (int i = 0; i < ch.count(); ++i)
+            if (ch.at(i).isElement())
+                kids.append(ch.at(i).toElement());
+
+        const QString childPrefix = isRoot ? QString()
+                                           : prefix + (isLast ? "   " : "│  ");
+        for (int i = 0; i < kids.size(); ++i)
+            dumpReadableRec(kids.at(i), childPrefix, i == kids.size() - 1, false, out);
+    }
+}
+
 bool ArxmlParser::parseFile(const QString &filePath)
 {
     QFile file(filePath);
@@ -222,4 +298,20 @@ QString ArxmlParser::collectChildText(const QDomElement &el, const QString &tagN
         }
     }
     return QString();
+}
+
+QString ArxmlParser::dumpReadable(const QDomElement &el)
+{
+    QString out;
+    if (el.isNull()) return out;
+    dumpReadableRec(el, QString(), true, true, out);
+    return out;
+}
+
+QString ArxmlParser::dumpReadableByPath(const QString &path)
+{
+    QDomElement el = findByPath(path);
+    if (el.isNull())
+        return QString("(not found: %1)").arg(path);
+    return dumpReadable(el);
 }

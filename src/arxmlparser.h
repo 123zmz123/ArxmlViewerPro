@@ -30,6 +30,10 @@ public:
     // 工具方法
     static QString collectChildText(const QDomElement &el, const QString &tagName);
 
+    static QString dumpReadable(const QDomElement &el);
+
+    QString dumpReadableByPath(const QString &path);
+
 private:
     QDomDocument m_doc;
     QString m_filePath;

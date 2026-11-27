@@ -52,6 +52,7 @@ private:
     void loadStyleSheet();
     void recordCurrentPosition();
     void navigateToPosition(const NavPosition &pos);
+    void showTextDialog(const QString &title, const QString &text);
 
     Ui::MainWindow *ui;
     QString m_currentDir;
